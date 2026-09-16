@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+
+{% block title %}Chat - Secure E2EE Private Messaging{% endblock %}
+
+{% block content %}
+<div class="app-container">
+    <!-- Sidebar / Contacts -->
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-brand">
+            <div class="brand-title">
+                <span class="brand-icon">🔒</span>
+                <span>SecureChat</span>
+            </div>
+            <div id="connection-status" class="connection-pill connected" title="Socket.IO real-time transport status">
+                <span class="status-dot"></span>
+                <span id="connection-status-text">Connected</span>
+            </div>
+        </div>
+
+        <div class="user-profile-bar">
+            <div class="user-info">
+                <div id="my-avatar" class="avatar" aria-hidden="true">?</div>
+                <div class="user-meta">
+                    <div id="my-username" class="username">Loading...</div>
+                    <div id="my-key-badge" class="key-badge">🔒 RSA-2048 Active</div>
+                </div>
+            </div>
+            <button id="logout-btn" class="logout-btn" title="Sign out of current session" aria-label="Sign out">Logout</button>
+        </div>
+
+        <div class="search-box">
+            <input type="text" id="contact-search" class="search-input" placeholder="Search contacts..." aria-label="Search contacts">
+        </div>
+
+        <div id="contact-list" class="contact-list" role="navigation" aria-label="Contacts list">
+            <div class="empty-state" style="padding-top: 40px;">
+                <p>Loading registered peers...</p>
+            </div>
+        </div>
+    </aside>
+
+    <!-- Main Chat Stage -->
+    <main class="chat-stage">
+        <!-- Key Missing Alert Banner (only visible if private key not found in IndexedDB) -->
+        <div id="key-warning" class="key-warning-banner" style="display: none;" role="alert">
+            <span>⚠️ Private key not found in this browser. Generate a keypair to enable decryption.</span>
+            <button id="gen-key-btn" class="key-warning-btn">Generate New Key</button>
+        </div>
+
+        <!-- Key Changed Security Warning Banner (Phase 1: TOFU Trust Alert) -->
+        <div id="key-changed-warning" class="key-changed-banner" style="display: none;" role="alert">
+            <span id="key-changed-text">
+                ⚠️ WARNING: This contact's public key has changed. Do not send sensitive messages until the new key is verified.
+            </span>
+            <button id="reverify-key-btn" class="key-reverify-btn">Verify &amp; Trust New Key</button>
+        </div>
+
+        <!-- Chat Header -->
+        <div id="chat-header" class="chat-header" style="display: none;">
+            <div class="chat-partner-info">
+                <button id="sidebar-toggle-btn" class="sidebar-toggle-btn" title="Toggle contact list" aria-label="Toggle contact list">☰</button>
+                <div id="partner-avatar" class="avatar" aria-hidden="true">?</div>
+                <div>
+                    <div id="partner-name" class="chat-partner-name">Select Contact</div>
+                    <div class="e2ee-indicator">
+                        <span>🔒 True E2EE Active</span>
+                        <span class="algo-pill">AES-256-GCM</span>
+                    </div>
+                </div>
+            </div>
+            <div class="fingerprint-pill" id="partner-fingerprint" title="Safety Number: SHA-256 fingerprint of peer public key">
+                Fingerprint: ...
+            </div>
+        </div>
+
+        <!-- Message Stream -->
+        <div id="message-stream" class="message-stream">
+            <div id="welcome-state" class="empty-state">
+                <div style="font-size: 48px; margin-bottom: 16px;">🛡️</div>
+                <h3>End-to-End Encrypted Chat</h3>
+                <p>Select a contact from the sidebar to start a private, zero-knowledge conversation.</p>
+                <p style="font-size: 12px; margin-top: 12px; color: var(--text-dim);">
+                    Plaintext messages and private keys are never transmitted to the server.
+                </p>
+            </div>
+        </div>
+
+        <!-- Message Input Bar -->
+        <form id="chat-input-form" class="chat-input-area" style="display: none;" aria-label="Message composition">
+            <input type="text" id="message-input" class="chat-input" placeholder="Type an encrypted message..." autocomplete="off" required aria-label="Message text to encrypt and send">
+            <button type="submit" id="send-btn" class="send-btn" aria-label="Send encrypted message">
+                <span>Send</span>
+                <span aria-hidden="true">🔒</span>
+            </button>
+        </form>
+    </main>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<!-- Socket.IO Client -->
+<script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+<!-- Client-Side Chat Coordinator -->
+<script src="/static/js/chat.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        ChatApp.init();
+    });
+</script>
+{% endblock %}

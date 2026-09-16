@@ -1,0 +1,55 @@
+flowchart TB
+    subgraph ClientA["Client Browser A (Sender / Alice)"]
+        direction TB
+        UI_A["UI & DOM<br/>(Templates & CSS)"]
+        WCA_A["Web Crypto API<br/>(RSA-2048 / AES-256-GCM)"]
+        IDB_A[("IndexedDB<br/>• Alice Private Key<br/>• Scoped Trusted Fingerprints")]
+        UI_A <--> WCA_A
+        WCA_A <--> IDB_A
+    end
+
+    subgraph Server["Flask Application Server (Zero-Knowledge Relay)"]
+        direction TB
+        MW["Security Middleware<br/>• CSRF Protection<br/>• IP & Account Rate Limiting<br/>• Security Headers & Sanitization"]
+        AUTH["Authentication & Sessions<br/>(Werkzeug Scrypt / Session Cookies)"]
+        VAL["Message Validation<br/>• UUIDv4 & Protocol v1<br/>• Identity Verification"]
+        ROUTER["Socket.IO / REST Router<br/>(Flask-SocketIO Rooms)"]
+        ORM["SQLAlchemy ORM"]
+        
+        MW --> AUTH
+        MW --> VAL
+        AUTH --> ROUTER
+        VAL --> ROUTER
+        ROUTER --> ORM
+    end
+
+    subgraph Database[("SQLite Database")]
+        direction TB
+        TBL_USERS["users table<br/>• id, username, password_hash<br/>• public_key (SPKI DER Base64)"]
+        TBL_MSGS["messages table<br/>• id, message_id (UUIDv4)<br/>• ciphertext (AES-GCM)<br/>• iv (96-bit)<br/>• sender_encrypted_key (RSA)<br/>• recipient_encrypted_key (RSA)"]
+        TBL_USERS --- TBL_MSGS
+    end
+
+    subgraph ClientB["Client Browser B (Recipient / Bob)"]
+        direction TB
+        UI_B["UI & DOM<br/>(Templates & CSS)"]
+        WCA_B["Web Crypto API<br/>(RSA-OAEP / AES-GCM Decrypt)"]
+        IDB_B[("IndexedDB<br/>• Bob Private Key<br/>• Scoped Trusted Fingerprints")]
+        UI_B <--> WCA_B
+        WCA_B <--> IDB_B
+    end
+
+    %% Network Flows
+    ClientA -- "1. Key Exchange / Auth (HTTPS REST)" --> MW
+    ClientA -- "2. Encrypted Envelope (Socket.IO WSS)" --> MW
+    ORM <--> Database
+    ROUTER -- "3. Encrypted Envelope Relay (Socket.IO WSS)" --> ClientB
+    ClientB -- "Key Exchange / Auth (HTTPS REST)" --> MW
+
+    classDef client fill:#1e293b,stroke:#38bdf8,stroke-width:2px,color:#f8fafc;
+    classDef server fill:#0f172a,stroke:#6366f1,stroke-width:2px,color:#f8fafc;
+    classDef db fill:#1e1b4b,stroke:#818cf8,stroke-width:2px,color:#f8fafc;
+
+    class ClientA,ClientB client;
+    class Server server;
+    class Database db;

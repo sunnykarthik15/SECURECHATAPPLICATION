@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+
+{% block title %}Sign In - Secure E2EE Chat{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="/static/css/auth.css">
+{% endblock %}
+
+{% block content %}
+<div class="auth-wrapper">
+    <div class="auth-card">
+        <div class="auth-header">
+            <div class="project-pill">🛡️ BTech CSE Mini-Project</div>
+            <div class="auth-logo">🔒</div>
+            <h1 class="auth-title">Secure Chat</h1>
+            <p class="auth-subtitle">Zero-Knowledge End-to-End Encrypted Messaging</p>
+        </div>
+
+        <div id="error-alert" class="error-alert" role="alert" aria-live="assertive"></div>
+        <div id="keygen-status" class="keygen-status" aria-live="polite">
+            <div class="spinner"></div>
+            <span id="keygen-text">Verifying local cryptographic key...</span>
+        </div>
+
+        <form id="login-form" class="auth-form" autocomplete="off" novalidate>
+            <div class="form-group">
+                <label for="username" class="form-label">Username</label>
+                <input type="text" id="username" class="form-input" placeholder="e.g. alice" required autofocus autocomplete="username" aria-label="Username">
+            </div>
+
+            <div class="form-group">
+                <label for="password" class="form-label">Password</label>
+                <div class="password-input-wrapper">
+                    <input type="password" id="password" class="form-input" placeholder="••••••••" required autocomplete="current-password" aria-label="Password">
+                    <button type="button" id="toggle-password" class="toggle-password-btn" title="Show or hide password" aria-label="Toggle password visibility">
+                        <span class="toggle-icon">👁️</span>
+                    </button>
+                </div>
+            </div>
+
+            <button type="submit" id="submit-btn" class="auth-btn">
+                <span>Unlock &amp; Sign In</span>
+            </button>
+        </form>
+
+        <div class="auth-footer">
+            Don't have an encrypted account? <a href="/register">Register and generate keys</a>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="/static/js/auth.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        AuthHandler.initLogin();
+    });
+</script>
+{% endblock %}

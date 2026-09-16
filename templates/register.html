@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+
+{% block title %}Create Account - Secure E2EE Chat{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="/static/css/auth.css">
+{% endblock %}
+
+{% block content %}
+<div class="auth-wrapper">
+    <div class="auth-card">
+        <div class="auth-header">
+            <div class="project-pill">🛡️ BTech CSE Mini-Project</div>
+            <div class="auth-logo">🛡️</div>
+            <h1 class="auth-title">Create Encrypted Account</h1>
+            <p class="auth-subtitle">An RSA-2048 keypair will be generated locally in your browser</p>
+        </div>
+
+        <div id="error-alert" class="error-alert" role="alert" aria-live="assertive"></div>
+        <div id="keygen-status" class="keygen-status" aria-live="polite">
+            <div class="spinner"></div>
+            <span id="keygen-text">Generating RSA-2048 keypair in browser...</span>
+        </div>
+
+        <form id="register-form" class="auth-form" autocomplete="off" novalidate>
+            <div class="form-group">
+                <label for="username" class="form-label">
+                    Username
+                    <span class="field-hint">3–32 alphanumeric characters</span>
+                </label>
+                <input type="text" id="username" class="form-input" placeholder="e.g. bob" required autofocus autocomplete="username" aria-label="Username">
+            </div>
+
+            <div class="form-group">
+                <label for="password" class="form-label">
+                    Password
+                    <span class="field-hint">Min 8 characters</span>
+                </label>
+                <div class="password-input-wrapper">
+                    <input type="password" id="password" class="form-input" placeholder="••••••••" required minlength="8" autocomplete="new-password" aria-label="Password">
+                    <button type="button" id="toggle-password" class="toggle-password-btn" title="Show or hide password" aria-label="Toggle password visibility">
+                        <span class="toggle-icon">👁️</span>
+                    </button>
+                </div>
+            </div>
+
+            <div class="crypto-notice-box">
+                <span class="crypto-notice-icon">🔐</span>
+                <span class="crypto-notice-text">
+                    Your <strong>RSA-2048 private key</strong> is stored exclusively in your browser's IndexedDB. Only the public key is sent to the server.
+                </span>
+            </div>
+
+            <button type="submit" id="submit-btn" class="auth-btn">
+                <span>Generate Keys &amp; Register</span>
+            </button>
+        </form>
+
+        <div class="auth-footer">
+            Already have an account? <a href="/login">Sign in</a>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="/static/js/auth.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        AuthHandler.initRegister();
+    });
+</script>
+{% endblock %}

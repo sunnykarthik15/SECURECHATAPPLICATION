@@ -1,0 +1,14 @@
+# Core Application Dependencies
+Flask>=3.0.0
+Flask-SocketIO>=5.3.6
+Flask-SQLAlchemy>=3.1.1
+Werkzeug>=3.0.0
+simple-websocket>=1.0.0
+pytest>=8.0.0
+cryptography>=42.0.0
+
+# Documentation & Report Generation (Optional)
+python-docx>=1.1.0
+reportlab>=4.0.0
+matplotlib>=3.8.0
+Pillow>=10.0.0

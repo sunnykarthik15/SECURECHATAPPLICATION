@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>CryptoEngine Phase 3 Verification</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #0f172a; color: #f8fafc; padding: 30px; }
+        .card { background: #1e293b; border-radius: 8px; padding: 20px; max-width: 700px; margin: 0 auto; box-shadow: 0 4px 6px rgba(0,0,0,0.3); }
+        h1 { color: #38bdf8; font-size: 24px; margin-top: 0; }
+        .test-item { padding: 10px 14px; margin: 8px 0; border-radius: 6px; display: flex; justify-content: space-between; align-items: center; }
+        .pass { background: #064e3b; color: #6ee7b7; }
+        .fail { background: #7f1d1d; color: #fca5a5; }
+        .status-badge { font-weight: bold; font-size: 13px; text-transform: uppercase; }
+        #summary { margin-top: 20px; font-size: 18px; font-weight: bold; padding: 12px; border-radius: 6px; text-align: center; }
+        .all-pass { background: #047857; color: #ffffff; }
+        .has-fail { background: #b91c1c; color: #ffffff; }
+        pre { background: #0f172a; padding: 10px; border-radius: 4px; overflow-x: auto; font-size: 12px; color: #94a3b8; }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h1>Web Crypto & IndexedDB Phase 3 Test Suite</h1>
+        <p>Testing RSA-2048 generation, SPKI Base64 export/import, IndexedDB private key persistence, and trusted fingerprints.</p>
+        <div id="test-results">Running tests...</div>
+        <div id="summary"></div>
+    </div>
+
+    <script src="/static/js/crypto.js"></script>
+    <script>
+        window.__CRYPTO_TESTS_COMPLETE__ = false;
+        window.__CRYPTO_TESTS_PASSED__ = false;
+        window.__TEST_LOGS__ = [];
+
+        async function runCryptoTestSuite() {
+            const resultsDiv = document.getElementById('test-results');
+            resultsDiv.innerHTML = '';
+            const tests = [];
+
+            function record(name, passed, detail) {
+                tests.push({ name, passed, detail });
+                const item = document.createElement('div');
+                item.className = 'test-item ' + (passed ? 'pass' : 'fail');
+                item.innerHTML = `<span><strong>${name}</strong>: ${detail}</span><span class="status-badge">${passed ? 'PASS' : 'FAIL'}</span>`;
+                resultsDiv.appendChild(item);
+                window.__TEST_LOGS__.push({ name, passed, detail });
+            }
+
+            try {
+                // Test 1: Base64 roundtrip
+                const testBytes = new Uint8Array([0, 255, 128, 64, 32, 16, 8, 4, 2, 1]);
+                const b64 = CryptoEngine.arrayBufferToBase64(testBytes.buffer);
+                const recoveredBuffer = CryptoEngine.base64ToArrayBuffer(b64);
+                const recoveredBytes = new Uint8Array(recoveredBuffer);
+                let b64Matches = testBytes.length === recoveredBytes.length;
+                for (let i = 0; i < testBytes.length; i++) {
+                    if (testBytes[i] !== recoveredBytes[i]) b64Matches = false;
+                }
+                record('Base64 ArrayBuffer Roundtrip', b64Matches, 'Length: ' + b64.length);
+
+                // Test 2: RSA-2048 Key Generation
+                const keyPair = await CryptoEngine.generateRSAKeyPair();
+                const hasValidTypes = keyPair.publicKey.type === 'public' && keyPair.privateKey.type === 'private';
+                const hasValidAlgo = keyPair.publicKey.algorithm.name === 'RSA-OAEP' && keyPair.publicKey.algorithm.modulusLength === 2048;
+                record('RSA-2048 Key Generation', hasValidTypes && hasValidAlgo, 'Modulus: ' + keyPair.publicKey.algorithm.modulusLength + ' bits, Algo: RSA-OAEP');
+
+                // Test 3: Public Key SPKI Export and Import
+                const spkiBase64 = await CryptoEngine.exportPublicKey(keyPair.publicKey);
+                const isBase64 = typeof spkiBase64 === 'string' && spkiBase64.length > 100;
+                const importedPublicKey = await CryptoEngine.importPublicKey(spkiBase64);
+                const importValid = importedPublicKey.type === 'public' && importedPublicKey.algorithm.name === 'RSA-OAEP';
+                record('SPKI Public Key Export & Import', isBase64 && importValid, 'Exported SPKI string length: ' + spkiBase64.length + ' chars');
+
+                // Test 4: IndexedDB Private Key Storage & Retrieval
+                const testUsername = 'test_user_phase3_' + Date.now();
+                await CryptoEngine.storePrivateKey(testUsername, keyPair.privateKey);
+                const hasKey = await CryptoEngine.hasPrivateKey(testUsername);
+                const retrievedKey = await CryptoEngine.getPrivateKey(testUsername);
+                const keyValid = retrievedKey !== null && retrievedKey.type === 'private' && retrievedKey.algorithm.name === 'RSA-OAEP';
+                record('IndexedDB Private Key Storage & Retrieval', hasKey && keyValid, 'Successfully persisted and retrieved CryptoKey');
+
+                // Test 5: Key Cleanliness / Deletion
+                await CryptoEngine.clearPrivateKey(testUsername);
+                const keyAfterClear = await CryptoEngine.getPrivateKey(testUsername);
+                record('IndexedDB Key Cleanup', keyAfterClear === null, 'Key removed cleanly');
+
+                // Test 6: AES-256 Key Generation
+                const aesKey = await CryptoEngine.generateAESKey();
+                const isAES256 = aesKey.type === 'secret' && aesKey.algorithm.name === 'AES-GCM' && aesKey.algorithm.length === 256;
+                record('AES-256 Key Generation', isAES256, 'Algorithm: ' + aesKey.algorithm.name + ', Length: ' + aesKey.algorithm.length + ' bits');
+
+                // Test 7: AES-256-GCM Message Encryption & Decryption
+                const secretMessage = 'Antigravity End-to-End Encryption Verification 2026!';
+                const encrypted = await CryptoEngine.encryptMessageAES(secretMessage, aesKey);
+                const isEncryptedValid = encrypted.ciphertext && encrypted.iv && encrypted.iv.length === 16; // 12 bytes Base64 is 16 chars
+                const decryptedMessage = await CryptoEngine.decryptMessageAES(encrypted.ciphertext, encrypted.iv, aesKey);
+                record('AES-256-GCM Encrypt & Decrypt Roundtrip', isEncryptedValid && decryptedMessage === secretMessage, 'Decrypted text matches exact plaintext');
+
+                // Test 8: IV Uniqueness & Ciphertext Non-Determinism
+                const enc1 = await CryptoEngine.encryptMessageAES('Same message', aesKey);
+                const enc2 = await CryptoEngine.encryptMessageAES('Same message', aesKey);
+                const uniqueIVs = enc1.iv !== enc2.iv && enc1.ciphertext !== enc2.ciphertext;
+                record('IV Uniqueness & Randomness', uniqueIVs, 'Two identical plaintexts produce distinct IVs and ciphertexts');
+
+                // Test 9: Ciphertext Tamper & Authentication Tag Verification
+                let tamperCaught = false;
+                try {
+                    // Modify last character of Base64 ciphertext (flips bits in payload/tag)
+                    const tamperedCiphertext = encrypted.ciphertext.slice(0, -2) + (encrypted.ciphertext.slice(-2, -1) === 'A' ? 'B' : 'A') + '=';
+                    await CryptoEngine.decryptMessageAES(tamperedCiphertext, encrypted.iv, aesKey);
+                } catch (e) {
+                    tamperCaught = true;
+                }
+                record('Tamper Detection & Tag Verification', tamperCaught, 'Corrupted ciphertext rejected by GCM tag validation');
+
+                // Test 10: Raw AES Key Export & Import
+                const rawAESKeyBuffer = await CryptoEngine.exportAESKeyRaw(aesKey);
+                const importedAESKey = await CryptoEngine.importAESKeyRaw(rawAESKeyBuffer);
+                const roundtripDecrypt = await CryptoEngine.decryptMessageAES(encrypted.ciphertext, encrypted.iv, importedAESKey);
+                record('Raw AES Key Export & Import', roundtripDecrypt === secretMessage, 'Imported raw key decrypts ciphertext identically');
+
+                // Test 11: Hybrid Encryption & Dual-Wrapping
+                const alicePair = await CryptoEngine.generateRSAKeyPair();
+                const bobPair = await CryptoEngine.generateRSAKeyPair();
+                const charliePair = await CryptoEngine.generateRSAKeyPair();
+
+                const hybridText = 'Hello Bob! This is our hybrid E2EE secret message.';
+                const hybridPackage = await CryptoEngine.encryptHybridMessage(hybridText, alicePair.publicKey, bobPair.publicKey);
+                const hasBothKeys = hybridPackage.ciphertext && hybridPackage.iv && hybridPackage.sender_encrypted_key && hybridPackage.recipient_encrypted_key;
+                record('Hybrid Encryption Dual-Wrapping', hasBothKeys, 'Generated ciphertext, IV, sender_encrypted_key, and recipient_encrypted_key');
+
+                // Test 12: Sender Decryption (Alice decrypts her sent message from history)
+                const aliceDecrypted = await CryptoEngine.decryptHybridMessage(
+                    hybridPackage.ciphertext,
+                    hybridPackage.iv,
+                    hybridPackage.sender_encrypted_key,
+                    alicePair.privateKey
+                );
+                record('Sender History Decryption (Alice)', aliceDecrypted === hybridText, 'Alice decrypted payload using her private key and sender_encrypted_key');
+
+                // Test 13: Recipient Decryption (Bob decrypts incoming message)
+                const bobDecrypted = await CryptoEngine.decryptHybridMessage(
+                    hybridPackage.ciphertext,
+                    hybridPackage.iv,
+                    hybridPackage.recipient_encrypted_key,
+                    bobPair.privateKey
+                );
+                record('Recipient Delivery Decryption (Bob)', bobDecrypted === hybridText, 'Bob decrypted payload using his private key and recipient_encrypted_key');
+
+                // Test 14: Unauthorized Party Decryption Prevention (Charlie cannot decrypt)
+                let charlieBlocked = false;
+                try {
+                    await CryptoEngine.decryptHybridMessage(
+                        hybridPackage.ciphertext,
+                        hybridPackage.iv,
+                        hybridPackage.recipient_encrypted_key,
+                        charliePair.privateKey
+                    );
+                } catch (err) {
+                    charlieBlocked = true;
+                }
+                record('Unauthorized Access Blocked (Charlie)', charlieBlocked, 'Third party cannot unwrap AES key with unauthorized private key');
+
+                // Test 15: Deterministic SHA-256 Fingerprint Computation
+                const fp1 = await CryptoEngine.computeKeyFingerprint(spkiBase64);
+                const fp2 = await CryptoEngine.computeKeyFingerprint(spkiBase64);
+                const fpValid = fp1 && fp1 === fp2 && fp1.length === 79; // 16 blocks * 4 chars + 15 spaces = 79 chars
+                record('Deterministic SHA-256 Fingerprint', fpValid, 'Fingerprint format: ' + fp1.substring(0, 19) + '...');
+
+                // Test 16: Canonical UUIDv4 Generator
+                const uuid1 = CryptoEngine.generateUUIDv4();
+                const uuid2 = CryptoEngine.generateUUIDv4();
+                const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+                const uuidValid = uuidRegex.test(uuid1) && uuidRegex.test(uuid2) && uuid1 !== uuid2;
+                record('Canonical UUIDv4 Message ID Generation', uuidValid, 'Generated UUID: ' + uuid1);
+
+                // Test 17: Scoped IndexedDB Trusted Fingerprint Storage
+                const testAccount = 'alice_scope_' + Date.now();
+                await CryptoEngine.storeTrustedFingerprint(testAccount, 42, fp1);
+                const retrievedFp = await CryptoEngine.getTrustedFingerprint(testAccount, 42);
+                const wrongScopeFp = await CryptoEngine.getTrustedFingerprint('other_account', 42);
+                const trustValid = retrievedFp === fp1 && wrongScopeFp === null;
+                record('IndexedDB Account-Scoped Trusted Fingerprints', trustValid, 'Verified fingerprint matches and remains isolated per user');
+
+                // Final Evaluation
+                const allPassed = tests.every(t => t.passed);
+                window.__CRYPTO_TESTS_PASSED__ = allPassed;
+                const summaryDiv = document.getElementById('summary');
+                summaryDiv.className = allPassed ? 'all-pass' : 'has-fail';
+                summaryDiv.textContent = allPassed ? `ALL ${tests.length} TESTS PASSED SUCCESSFULLY` : 'TEST FAILURES DETECTED';
+
+            } catch (err) {
+                record('Fatal Suite Exception', false, err.toString());
+                window.__CRYPTO_TESTS_PASSED__ = false;
+            } finally {
+                window.__CRYPTO_TESTS_COMPLETE__ = true;
+            }
+        }
+
+        window.addEventListener('DOMContentLoaded', runCryptoTestSuite);
+    </script>
+</body>
+</html>

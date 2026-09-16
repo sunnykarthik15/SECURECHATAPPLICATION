@@ -1,0 +1,29 @@
+sequenceDiagram
+    autonumber
+    participant Alice as Alice (Sender Browser)
+    participant WCA_A as Alice Web Crypto API
+    participant Server as Flask Server (Relay & DB)
+    participant Bob as Bob (Recipient Browser)
+    participant WCA_B as Bob Web Crypto API
+
+    Note over Alice,Bob: Prerequisites: Alice has Bob's Public Key (verified via SHA-256 fingerprint in IndexedDB)
+
+    Alice->>WCA_A: 1. Generate ephemeral AES-256 Key & 96-bit random IV
+    Alice->>WCA_A: 2. Encrypt plaintext message with AES-256-GCM
+    WCA_A-->>Alice: Ciphertext + 128-bit Auth Tag
+    Alice->>WCA_A: 3. Wrap AES key with Bob's RSA-2048 Public Key (RSA-OAEP)
+    WCA_A-->>Alice: recipient_encrypted_key
+    Alice->>WCA_A: 4. Wrap AES key with Alice's RSA-2048 Public Key (RSA-OAEP)
+    WCA_A-->>Alice: sender_encrypted_key
+
+    Note over Alice: Payload Package: UUIDv4, version=1, IV, Ciphertext, Encrypted Keys
+
+    Alice->>Server: 5. Transmit Encrypted Package (Socket.IO or REST)
+    Note over Server: Server validates sender session & UUID uniqueness.<br/>Stores ciphertext and wrapped keys in SQLite.<br/>Zero plaintext visible.
+    Server->>Bob: 6. Push Encrypted Package via Socket.IO Room
+
+    Bob->>WCA_B: 7. Unwrap recipient_encrypted_key using Bob's Private Key (from IndexedDB)
+    WCA_B-->>Bob: Ephemeral AES-256 Key recovered
+    Bob->>WCA_B: 8. Decrypt Ciphertext using AES-256-GCM + IV + Tag
+    WCA_B-->>Bob: Plaintext Message Recovered
+    Note over Bob: Message displayed securely in Bob's UI

@@ -1,0 +1,24 @@
+erDiagram
+    USERS ||--o{ MESSAGES : "sends (sender_id)"
+    USERS ||--o{ MESSAGES : "receives (recipient_id)"
+
+    USERS {
+        INTEGER id PK "autoincrement"
+        VARCHAR_64 username UK "UNIQUE, INDEX, NOT NULL"
+        VARCHAR_256 password_hash "NOT NULL (scrypt/pbkdf2)"
+        TEXT public_key "NOT NULL (RSA-2048 SPKI DER Base64)"
+        DATETIME created_at "NOT NULL, UTC"
+    }
+
+    MESSAGES {
+        INTEGER id PK "autoincrement"
+        VARCHAR_64 message_id UK "UNIQUE, INDEX, NOT NULL (UUIDv4)"
+        INTEGER version "NOT NULL, default 1"
+        INTEGER sender_id FK "REFERENCES users(id) ON DELETE CASCADE, INDEX"
+        INTEGER recipient_id FK "REFERENCES users(id) ON DELETE CASCADE, INDEX"
+        TEXT ciphertext "NOT NULL (AES-256-GCM + 128-bit Tag Base64)"
+        VARCHAR_64 iv "NOT NULL (96-bit random IV Base64)"
+        TEXT sender_encrypted_key "NOT NULL (RSA-OAEP wrapped AES key Base64)"
+        TEXT recipient_encrypted_key "NOT NULL (RSA-OAEP wrapped AES key Base64)"
+        DATETIME created_at "NOT NULL, INDEX, UTC"
+    }
